@@ -3,6 +3,8 @@ use openai_api_rust::chat::{ChatApi, ChatBody};
 use serde::{Deserialize, Serialize};
 use crate::Config;
 use crate::shell::Shell;
+use reqwest::Client;
+use serde_json::json;
 
 #[derive(Serialize, Deserialize)]
 pub enum Model {
@@ -17,39 +19,73 @@ pub enum Model {
 }
 
 impl Model {
-    pub fn llm_get_command(&self, config: &Config, user_prompt: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {
-        let model_name = self.get_model_name();
-        let auth = self.get_auth();
-        let client = OpenAI::new(auth, self.get_openai_endpoint().as_str());
+    pub async fn llm_get_command(&self, config: &Config, user_prompt: &str) -> Result<Option<String>, Box<dyn std::error::Error>> {
+        match self {
+            Model::Ollama(model_name) => {
+                let client = Client::new();
+                let system_prompt = self.get_system_prompt(&Shell::detect());
+                let full_prompt = format!("{}{}", system_prompt, user_prompt);
+                let body = json!({
+                    "model": model_name,
+                    "messages": [{"role": "user", "content": full_prompt}],
+                    "stream": false,
+                });
 
-        let shell = Shell::detect();
-        let system_prompt = self.get_system_prompt(&shell);
+                let response = client
+                    .post("http://localhost:11434/api/chat")
+                    .json(&body)
+                    .send()
+                    .await?;
 
-        let body = ChatBody {
-            model: model_name,
-            max_tokens: Some(config.max_tokens),
-            temperature: Some(0.5),
-            top_p: None,
-            n: None,
-            stream: None,
-            stop: None,
-            presence_penalty: None,
-            frequency_penalty: None,
-            logit_bias: None,
-            user: None,
-            messages: vec![
-                Message { role: Role::System, content: system_prompt.to_string() },
-                Message { role: Role::User, content: user_prompt.to_string() }
-            ],
-        };
+                let response_body = response.text().await?;
+                //println!("{}", format!("Full Ollama response: {}", response_body).green());
+                let json_response: serde_json::Value = serde_json::from_str(&response_body)?;
 
-        match client.chat_completion_create(&body) {
-            Ok(response) => Ok(response.choices.first()
-                .map(|choice| choice.message.as_ref())
-                .flatten()
-                .map(|message| message.content.clone())
-            ),
-            Err(e) => Err(format!("Error: {:?}", e).into()),
+                if let Some(message) = json_response.get("message") {
+                    if let Some(content) = message.get("content").and_then(|v| v.as_str()) {
+                        Ok(Some(content.to_string()))
+                    } else {
+                        Ok(None)
+                    }
+                } else {
+                    Ok(None)
+                }
+            }
+            _ => {
+                let model_name = self.get_model_name();
+                let auth = self.get_auth();
+                let client = OpenAI::new(auth, self.get_openai_endpoint().as_str());
+
+                let shell = Shell::detect();
+                let system_prompt = self.get_system_prompt(&shell);
+
+                let body = ChatBody {
+                    model: model_name,
+                    max_tokens: Some(config.max_tokens),
+                    temperature: Some(0.5),
+                    top_p: None,
+                    n: None,
+                    stream: None,
+                    stop: None,
+                    presence_penalty: None,
+                    frequency_penalty: None,
+                    logit_bias: None,
+                    user: None,
+                    messages: vec![
+                        Message { role: Role::System, content: system_prompt.to_string() },
+                        Message { role: Role::User, content: user_prompt.to_string() }
+                    ],
+                };
+
+                match client.chat_completion_create(&body) {
+                    Ok(response) => Ok(response.choices.first()
+                        .map(|choice| choice.message.as_ref())
+                        .flatten()
+                        .map(|message| message.content.clone())
+                    ),
+                    Err(e) => Err(format!("Error: {:?}", e).into()),
+                }
+            }
         }
     }
 
@@ -65,7 +101,7 @@ impl Model {
         match self {
             Model::OpenAiGpt4o => "https://api.openai.com/v1/".to_string(),
             Model::OpenAiGpt4oMini => "https://api.openai.com/v1/".to_string(),
-            Model::Ollama(_) => "http://localhost:11434/v1/".to_string(),
+            Model::Ollama(_) => "http://localhost:11434/api/chat".to_string(),
         }
     }
 
@@ -81,7 +117,7 @@ impl Model {
     fn get_system_prompt(&self, shell: &Shell) -> String {
         let shell_command_type = match shell {
             Shell::Powershell => "Windows PowerShell",
-            Shell::BornAgainShell => "Bourne Again Shell (bash / sh)",
+            Shell::BornAgainShell => "Bourne AgainShell (bash / sh)",
             Shell::Zsh => "Z Shell (zsh)",
             Shell::Fish => "Friendly Interactive Shell (fish)",
             Shell::DebianAlmquistShell => "Debian Almquist Shell (dash)",
@@ -99,6 +135,4 @@ impl Model {
             Assume you are operating in the current directory of the user unless explicitly stated otherwise.
         ", shell_command_type, std::env::consts::OS)
     }
-
-
 }

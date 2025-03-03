@@ -9,5 +9,7 @@ edition = "2021"
 clap = "4.5.16"
 colored = "2.1.0"
 openai_api_rust = "0.1.9"
+reqwest = { version = "0.12.12", features = ["json"] }
 serde = "1.0.209"
 serde_json = "1.0.127"
+tokio = { version = "1.43.0", features = ["full"] }

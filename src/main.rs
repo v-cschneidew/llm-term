@@ -18,7 +18,8 @@ struct Config {
     max_tokens: i32
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = Command::new("llm-term")
         .version("1.0")
         .author("dh1101")
@@ -79,7 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         cache.remove(prompt);
                         save_cache(&cache_path, &cache)?;
                         // Proceed to get command from LLM
-                        get_command_from_llm(&config, &mut cache, &cache_path, prompt)?;
+                        let _ = get_command_from_llm(&config, &mut cache, &cache_path, prompt).await;
                     } else {
                         println!("{}", "Command execution cancelled.".yellow());
                     }
@@ -87,11 +88,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 return Ok(());
             } else {
                 // Not in cache, proceed to get command from LLM
-                get_command_from_llm(&config, &mut cache, &cache_path, prompt)?;
+                let _ = get_command_from_llm(&config, &mut cache, &cache_path, prompt).await;
             }
         } else {
             // Cache is disabled, proceed to get command from LLM
-            get_command_from_llm(&config, &mut cache, &cache_path, prompt)?;
+            let _ = get_command_from_llm(&config, &mut cache, &cache_path, prompt).await;
         }
     } else {
         println!("{}", "Please provide a prompt or use --config to set up the configuration.".yellow());
@@ -119,7 +120,7 @@ fn load_or_create_config(path: &PathBuf) -> Result<Config, Box<dyn std::error::E
 
 fn create_config() -> Result<Config, io::Error> {
     let model = loop {
-        println!("{}", "Select model:\n 1 for gpt-4o-mini\n 2 for gpt-4o\n 3 for ollama (llama3.1)".cyan());
+        println!("{}", "Select model:\n 1 for gpt-4o-mini\n 2 for gpt-4o\n 3 for ollama (qwen2.5-coder)".cyan());
 
         io::stdout().flush()?;
         let mut choice = String::new();
@@ -127,7 +128,7 @@ fn create_config() -> Result<Config, io::Error> {
         match choice.trim() {
             "1" => break Model::OpenAiGpt4oMini,
             "2" => break Model::OpenAiGpt4o,
-            "3" => break Model::Ollama("llama3.1".to_string()),
+            "3" => break Model::Ollama("qwen2.5-coder".to_string()),
             _ => println!("{}", "Invalid choice. Please try again.".red()),
         }
     };
@@ -171,15 +172,16 @@ fn save_cache(path: &PathBuf, cache: &HashMap<String, String>) -> Result<(), Box
     Ok(())
 }
 
-fn get_command_from_llm(
+async fn get_command_from_llm(
     config: &Config,
     cache: &mut HashMap<String, String>,
     cache_path: &PathBuf,
     prompt: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    match &config.model.llm_get_command(config, prompt.as_str()) {
+    match &config.model.llm_get_command(config, prompt.as_str()).await {
         Ok(Some(command)) => {
             println!("{}", &command.cyan().bold());
+            //println!("{}", format!("Generated command: {}", command).green());
             println!("{}", "Do you want to execute this command? (y/n)".yellow());
 
             let mut user_input = String::new();
