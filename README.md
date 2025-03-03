@@ -18,17 +18,21 @@ A Rust-based CLI tool that generates and executes terminal commands using OpenAI
 
 - Set PATH to the binary
 
-    - MacOS/Linux:
-    ```
-    export PATH="$PATH:/path/to/llm-term"
-    ```
-    - To set it permanently, add `export PATH="$PATH:/path/to/llm-term"` to your shell configuration file (e.g., `.bashrc`, `.zshrc`)
+  - MacOS/Linux:
 
-    - Windows:
-    ```
-    set PATH="%PATH%;C:\path\to\llm-term"
-    ```
-    - To set it permanently, add `set PATH="%PATH%;C:\path\to\llm-term"` to your shell configuration file (e.g., `$PROFILE`)
+  ```
+  export PATH="$PATH:/path/to/llm-term"
+  ```
+
+  - To set it permanently, add `export PATH="$PATH:/path/to/llm-term"` to your shell configuration file (e.g., `.bashrc`, `.zshrc`)
+
+  - Windows:
+
+  ```
+  set PATH="%PATH%;C:\path\to\llm-term"
+  ```
+
+  - To set it permanently, add `set PATH="%PATH%;C:\path\to\llm-term"` to your shell configuration file (e.g., `$PROFILE`)
 
 ## Development
 
@@ -41,6 +45,7 @@ A Rust-based CLI tool that generates and executes terminal commands using OpenAI
 1. Set your OpenAI API key (if using OpenAI models):
 
    - MacOS/Linux:
+
      ```
      export OPENAI_API_KEY="sk-..."
      ```
@@ -49,7 +54,6 @@ A Rust-based CLI tool that generates and executes terminal commands using OpenAI
      ```
      set OPENAI_API_KEY="sk-..."
      ```
-
 
 2. If using Ollama, make sure it's running locally on the default port (11434)
 
@@ -73,4 +77,4 @@ A `config.json` file will be created in the same directory as the binary on firs
 
 - OpenAI GPT-4 (gpt-4o)
 - OpenAI GPT-4 Mini (gpt-4o-mini)
-- Ollama (local models, default: llama3.1)
+- Ollama (local models, default: qwen2.5-coder)
