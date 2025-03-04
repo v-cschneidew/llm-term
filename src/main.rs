@@ -27,7 +27,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .arg(Arg::new("prompt")
             .help("The prompt describing the desired command")
             .required(false)
-            .index(1))
+            .value_parser(clap::value_parser!(String))
+            .num_args(0..))
         .arg(Arg::new("config")
             .short('c')
             .long("config")
@@ -56,11 +57,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cache_path = get_cache_path()?;
     let mut cache = load_cache(&cache_path)?;
 
-    if let Some(prompt) = matches.get_one::<String>("prompt") {
+    if let Some(prompt_values) = matches.get_many::<String>("prompt") {
+        let prompt: String = prompt_values.cloned().collect::<Vec<_>>().join(" ");
         let disable_cache = matches.get_flag("disable-cache");
 
         if !disable_cache {
-            if let Some(cached_command) = cache.get(prompt) {
+            if let Some(cached_command) = cache.get(&prompt) {
                 println!("{}", "This command exists in cache".yellow());
                 println!("{}", cached_command.cyan().bold());
                 println!("{}", "Do you want to execute this command? (y/n)".yellow());
@@ -77,10 +79,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                     if user_input.trim().to_lowercase() == "y" {
                         // Invalidate cache
-                        cache.remove(prompt);
+                        cache.remove(&prompt);
                         save_cache(&cache_path, &cache)?;
                         // Proceed to get command from LLM
-                        let _ = get_command_from_llm(&config, &mut cache, &cache_path, prompt).await;
+                        let _ = get_command_from_llm(&config, &mut cache, &cache_path, &prompt).await;
                     } else {
                         println!("{}", "Command execution cancelled.".yellow());
                     }
@@ -88,11 +90,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 return Ok(());
             } else {
                 // Not in cache, proceed to get command from LLM
-                let _ = get_command_from_llm(&config, &mut cache, &cache_path, prompt).await;
+                let _ = get_command_from_llm(&config, &mut cache, &cache_path, &prompt).await;
             }
         } else {
             // Cache is disabled, proceed to get command from LLM
-            let _ = get_command_from_llm(&config, &mut cache, &cache_path, prompt).await;
+            let _ = get_command_from_llm(&config, &mut cache, &cache_path, &prompt).await;
         }
     } else {
         println!("{}", "Please provide a prompt or use --config to set up the configuration.".yellow());
